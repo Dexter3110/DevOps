@@ -1,0 +1,5 @@
+CI/CD Trigger Test File
+------------------------
+This file is used to test and verify automated build triggers for Week 7 CI/CD pipeline (GitHub Actions / Jenkins Webhooks).
+Commit timestamp: 2026-09-28
+Project: ESI (Employee Skill Inventory)
