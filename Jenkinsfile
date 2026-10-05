@@ -68,30 +68,37 @@ pipeline {
                     env.DEPLOY_PORT = (params.ENVIRONMENT == 'qa') ? '8086' : '8085'
                 }
                 echo "Deploying ${JAR_NAME} to ${params.ENVIRONMENT} (port ${env.DEPLOY_PORT})..."
-                bat """
-                    if not exist "%DEPLOY_ROOT%\\%ENVIRONMENT%" mkdir "%DEPLOY_ROOT%\\%ENVIRONMENT%"
-                    copy /Y target\\%JAR_NAME% "%DEPLOY_ROOT%\\%ENVIRONMENT%\\esi-project.jar"
+                // dontKillMe stops Jenkins from killing the app when this build finishes.
+                // Single-quoted block => Groovy does NOT interpolate, so PowerShell's $_ is safe.
+                // %ENVIRONMENT% / %DEPLOY_PORT% / %JAR_NAME% are read by cmd from Jenkins env vars.
+                withEnv(['JENKINS_NODE_COOKIE=dontKillMe', 'BUILD_ID=dontKillMe']) {
+                    bat '''
+                        if not exist "%DEPLOY_ROOT%\\%ENVIRONMENT%" mkdir "%DEPLOY_ROOT%\\%ENVIRONMENT%"
+                        copy /Y target\\%JAR_NAME% "%DEPLOY_ROOT%\\%ENVIRONMENT%\\esi-project.jar"
 
-                    REM Stop whatever is currently listening on this environment's port
-                    powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort %DEPLOY_PORT% -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"
+                        REM Stop whatever is currently listening on this environment's port
+                        powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort %DEPLOY_PORT% -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"
 
-                    REM Start the new build with the environment-specific Spring profile
-                    start "" /B java -jar "%DEPLOY_ROOT%\\%ENVIRONMENT%\\esi-project.jar" --spring.profiles.active=%ENVIRONMENT% --server.port=%DEPLOY_PORT%
+                        REM Start new build detached, output redirected so Jenkins does not hang
+                        start "" /B cmd /c "java -jar "%DEPLOY_ROOT%\\%ENVIRONMENT%\\esi-project.jar" --spring.profiles.active=%ENVIRONMENT% --server.port=%DEPLOY_PORT% > "%DEPLOY_ROOT%\\%ENVIRONMENT%\\app.log" 2>&1"
 
-                    REM Give Spring Boot time to boot before the health check
-                    timeout /T 12 /NOBREAK
-                """
+                        REM Wait ~15s for Spring Boot (timeout.exe fails under Jenkins, ping works)
+                        ping -n 16 127.0.0.1 > nul
+                        exit /b 0
+                    '''
+                }
             }
         }
 
         stage('Health Check') {
             steps {
                 echo "Verifying deployment at http://localhost:${env.DEPLOY_PORT}/ ..."
-                bat """
+                bat '''
+                    curl -f http://localhost:%DEPLOY_PORT%/api/env
                     curl -f http://localhost:%DEPLOY_PORT%/api/skills
                     echo.
                     echo Deployed and healthy. Dashboard: http://localhost:%DEPLOY_PORT%/
-                """
+                '''
             }
         }
     }
