@@ -3,6 +3,7 @@ package com.esi.selenium;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
@@ -65,7 +66,9 @@ public class EsiUiTest extends BaseUiTest {
         driver.findElement(By.cssSelector("#employeeForm [name='email']")).sendKeys(email);
         driver.findElement(By.cssSelector("#employeeForm [name='department']")).sendKeys(department);
         driver.findElement(By.cssSelector("#employeeForm [name='designation']")).sendKeys(designation);
-        driver.findElement(By.cssSelector("#employeeForm [name='hireDate']")).sendKeys(hireDate);
+        // Date inputs are locale-sensitive when typed; set the ISO value directly instead
+        ((JavascriptExecutor) driver).executeScript("arguments[0].value = arguments[1];",
+                driver.findElement(By.cssSelector("#employeeForm [name='hireDate']")), hireDate);
 
         // 4. Submit form and wait for modal to close
         driver.findElement(By.cssSelector("#employeeForm button[type='submit']")).click();
