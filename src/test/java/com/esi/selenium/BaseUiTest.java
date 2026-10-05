@@ -1,8 +1,6 @@
 package com.esi.selenium;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.openqa.selenium.By;
@@ -21,11 +19,6 @@ public abstract class BaseUiTest {
     protected WebDriver driver;
     protected WebDriverWait wait;
     protected String baseUrl;
-
-    @BeforeAll
-    public static void setupWebDriverManager() {
-        WebDriverManager.chromedriver().setup();
-    }
 
     @BeforeEach
     public void setUp() {
