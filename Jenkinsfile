@@ -61,6 +61,37 @@ pipeline {
             }
         }
 
+        stage('Selenium UI Tests') {
+            steps {
+                echo 'Starting packaged JAR on temporary port 8099 for Selenium UI Tests...'
+                withEnv(['JENKINS_NODE_COOKIE=dontKillMe', 'BUILD_ID=dontKillMe']) {
+                    bat '''
+                        REM Ensure port 8099 is free before starting
+                        powershell -NoProfile -Command "try { Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } catch {}; exit 0"
+
+                        REM Start packaged JAR detached on port 8099
+                        start "" /B cmd /c "java -jar target\\%JAR_NAME% --server.port=8099 > target\\selenium-app.log 2>&1"
+
+                        REM Wait for /api/env to respond
+                        curl --retry 30 --retry-delay 1 --retry-connrefused -f http://localhost:8099/api/env
+
+                        REM Run Selenium UI tests against port 8099
+                        mvn test -Dtest=*UiTest -Dbase.url=http://localhost:8099
+                    '''
+                }
+            }
+            post {
+                always {
+                    echo 'Stopping application on port 8099 and publishing UI test results...'
+                    bat '''
+                        powershell -NoProfile -Command "try { Get-NetTCPConnection -LocalPort 8099 -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } catch {}; exit 0"
+                    '''
+                    junit 'target/surefire-reports/*.xml'
+                    archiveArtifacts artifacts: 'target/screenshots/*.png', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Deploy') {
             steps {
                 script {
