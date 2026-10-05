@@ -60,12 +60,12 @@ public class EsiUiTest extends BaseUiTest {
         String designation = "Automation Engineer " + uid;
         String hireDate = "2024-01-10";
 
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("firstName"))).sendKeys(firstName);
-        driver.findElement(By.name("lastName")).sendKeys(lastName);
-        driver.findElement(By.name("email")).sendKeys(email);
-        driver.findElement(By.name("department")).sendKeys(department);
-        driver.findElement(By.name("designation")).sendKeys(designation);
-        driver.findElement(By.name("hireDate")).sendKeys(hireDate);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#employeeForm [name='firstName']"))).sendKeys(firstName);
+        driver.findElement(By.cssSelector("#employeeForm [name='lastName']")).sendKeys(lastName);
+        driver.findElement(By.cssSelector("#employeeForm [name='email']")).sendKeys(email);
+        driver.findElement(By.cssSelector("#employeeForm [name='department']")).sendKeys(department);
+        driver.findElement(By.cssSelector("#employeeForm [name='designation']")).sendKeys(designation);
+        driver.findElement(By.cssSelector("#employeeForm [name='hireDate']")).sendKeys(hireDate);
 
         // 4. Submit form and wait for modal to close
         driver.findElement(By.cssSelector("#employeeForm button[type='submit']")).click();
@@ -100,10 +100,10 @@ public class EsiUiTest extends BaseUiTest {
         String category = "Infrastructure";
         String description = "Infrastructure as Code automation " + uid;
 
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("name"))).sendKeys(skillName);
-        driver.findElement(By.name("category")).sendKeys(category);
-        new Select(driver.findElement(By.name("status"))).selectByValue("ACTIVE");
-        driver.findElement(By.name("description")).sendKeys(description);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#skillForm [name='name']"))).sendKeys(skillName);
+        driver.findElement(By.cssSelector("#skillForm [name='category']")).sendKeys(category);
+        new Select(driver.findElement(By.cssSelector("#skillForm [name='status']"))).selectByValue("ACTIVE");
+        driver.findElement(By.cssSelector("#skillForm [name='description']")).sendKeys(description);
 
         // 4. Submit form and wait for modal to close
         driver.findElement(By.cssSelector("#skillForm button[type='submit']")).click();
@@ -147,11 +147,11 @@ public class EsiUiTest extends BaseUiTest {
         String empEmail = "alex.assignee." + uid + "@testcorp.org";
         String empDept = "Operations";
 
-        driver.findElement(By.name("firstName")).sendKeys(empFirst);
-        driver.findElement(By.name("lastName")).sendKeys(empLast);
-        driver.findElement(By.name("email")).sendKeys(empEmail);
-        driver.findElement(By.name("department")).sendKeys(empDept);
-        driver.findElement(By.name("designation")).sendKeys("Systems Engineer");
+        driver.findElement(By.cssSelector("#employeeForm [name='firstName']")).sendKeys(empFirst);
+        driver.findElement(By.cssSelector("#employeeForm [name='lastName']")).sendKeys(empLast);
+        driver.findElement(By.cssSelector("#employeeForm [name='email']")).sendKeys(empEmail);
+        driver.findElement(By.cssSelector("#employeeForm [name='department']")).sendKeys(empDept);
+        driver.findElement(By.cssSelector("#employeeForm [name='designation']")).sendKeys("Systems Engineer");
         driver.findElement(By.cssSelector("#employeeForm button[type='submit']")).click();
         waitForModalToClose();
         wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("employeesTable"), empEmail));
@@ -165,8 +165,8 @@ public class EsiUiTest extends BaseUiTest {
         String skillName = "Ansible_" + uid;
         String skillCategory = "Configuration Mgmt";
 
-        driver.findElement(By.name("name")).sendKeys(skillName);
-        driver.findElement(By.name("category")).sendKeys(skillCategory);
+        driver.findElement(By.cssSelector("#skillForm [name='name']")).sendKeys(skillName);
+        driver.findElement(By.cssSelector("#skillForm [name='category']")).sendKeys(skillCategory);
         driver.findElement(By.cssSelector("#skillForm button[type='submit']")).click();
         waitForModalToClose();
         wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("skillsTable"), skillName));
@@ -178,7 +178,7 @@ public class EsiUiTest extends BaseUiTest {
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("assignmentForm")));
 
         // Select employee from dropdown
-        Select empSelect = new Select(wait.until(ExpectedConditions.visibilityOfElementLocated(By.name("employeeId"))));
+        Select empSelect = new Select(wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#assignmentForm [name='employeeId']"))));
         empSelect.getOptions().stream()
                 .filter(opt -> opt.getText().contains(empFullName))
                 .findFirst()
@@ -188,7 +188,7 @@ public class EsiUiTest extends BaseUiTest {
                 );
 
         // Select skill from dropdown
-        Select skillSelect = new Select(driver.findElement(By.name("skillId")));
+        Select skillSelect = new Select(driver.findElement(By.cssSelector("#assignmentForm [name='skillId']")));
         skillSelect.getOptions().stream()
                 .filter(opt -> opt.getText().contains(skillName))
                 .findFirst()
@@ -198,12 +198,12 @@ public class EsiUiTest extends BaseUiTest {
                 );
 
         // Fill proficiency and details
-        new Select(driver.findElement(By.name("proficiencyLevel"))).selectByValue("ADVANCED");
-        driver.findElement(By.name("yearsOfExperience")).clear();
-        driver.findElement(By.name("yearsOfExperience")).sendKeys("4");
+        new Select(driver.findElement(By.cssSelector("#assignmentForm [name='proficiencyLevel']"))).selectByValue("ADVANCED");
+        driver.findElement(By.cssSelector("#assignmentForm [name='yearsOfExperience']")).clear();
+        driver.findElement(By.cssSelector("#assignmentForm [name='yearsOfExperience']")).sendKeys("4");
 
         String certName = "Certified Specialist " + uid;
-        driver.findElement(By.name("certificationName")).sendKeys(certName);
+        driver.findElement(By.cssSelector("#assignmentForm [name='certificationName']")).sendKeys(certName);
         driver.findElement(By.id("verifiedCheck")).click();
 
         // Submit form
