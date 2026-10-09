@@ -1,0 +1,18 @@
+[Unit]
+Description=Employee Skill Inventory (ESI) Spring Boot Service
+After=network.target
+
+[Service]
+Type=simple
+User=esi
+Group=esi
+WorkingDirectory=/opt/esi/current
+ExecStart=/usr/bin/java -jar /opt/esi/current/esi-project.jar --spring.profiles.active={{ app_profile }} --server.port={{ app_port }}
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/esi/app.log
+StandardError=append:/var/log/esi/app.log
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
