@@ -1,0 +1,125 @@
+---
+- name: Deploy Employee Skill Inventory (ESI) Spring Boot Service
+  hosts: esi
+  become: true
+  vars:
+    app_port: 8090
+    app_profile: "dev"
+    release_version: "v1"
+    jar_src: "/mnt/c/Sahil/sem7/DevOps/project8/Project/target/esi-project-0.0.1-SNAPSHOT.jar"
+
+  tasks:
+    - name: Install OpenJDK 21 JRE headless and curl
+      ansible.builtin.apt:
+        name:
+          - openjdk-21-jre-headless
+          - curl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure esi system group exists
+      ansible.builtin.group:
+        name: esi
+        state: present
+        system: true
+
+    - name: Ensure esi system user exists
+      ansible.builtin.user:
+        name: esi
+        group: esi
+        shell: /usr/sbin/nologin
+        system: true
+        create_home: false
+        state: present
+
+    - name: Ensure base and release directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: esi
+        group: esi
+        mode: '0755'
+      loop:
+        - /opt/esi
+        - /opt/esi/releases
+        - "/opt/esi/releases/{{ release_version }}"
+        - /var/log/esi
+
+    - name: Copy application JAR artifact to release directory
+      ansible.builtin.copy:
+        src: "{{ jar_src }}"
+        dest: "/opt/esi/releases/{{ release_version }}/esi-project.jar"
+        owner: esi
+        group: esi
+        mode: '0644'
+      notify: Restart esi service
+
+    - name: Update current release symlink
+      ansible.builtin.file:
+        src: "/opt/esi/releases/{{ release_version }}"
+        dest: /opt/esi/current
+        state: link
+        owner: esi
+        group: esi
+        force: true
+      notify: Restart esi service
+
+    - name: Deploy systemd unit file for esi service
+      ansible.builtin.template:
+        src: templates/esi.service.j2
+        dest: /etc/systemd/system/esi.service
+        owner: root
+        group: root
+        mode: '0644'
+      register: esi_unit_file
+      notify: Restart esi service
+
+    - name: Reload systemd daemon if unit file changed
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: esi_unit_file.changed
+
+    - name: Ensure esi service is enabled and started
+      ansible.builtin.systemd:
+        name: esi
+        enabled: true
+        state: started
+
+    - name: Flush handlers to restart service if release or configuration changed
+      ansible.builtin.meta: flush_handlers
+
+    - name: Wait for application port to become ready
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ app_port }}"
+        delay: 5
+        timeout: 90
+        state: started
+
+    - name: Verify application health via /api/env endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/api/env"
+        method: GET
+        status_code: 200
+        return_content: true
+      register: env_response
+      until: env_response.status == 200
+      retries: 15
+      delay: 2
+
+    - name: Output deployment verification details
+      ansible.builtin.debug:
+        msg:
+          - "ESI service deployed successfully!"
+          - "Active Release: {{ release_version }}"
+          - "Port: {{ app_port }}"
+          - "Profile: {{ app_profile }}"
+          - "Response: {{ env_response.json }}"
+
+  handlers:
+    - name: Restart esi service
+      ansible.builtin.systemd:
+        name: esi
+        state: restarted
+        daemon_reload: true
