@@ -117,7 +117,7 @@ async function checkApiHealth() {
 async function showEnvBadge() {
   try {
     const info = await apiRequest("/env");
-    document.getElementById("envBadge").textContent = `ENV: ${(info.environment || "local").toUpperCase()} · PORT ${info.port}`;
+    document.getElementById("envBadge").textContent = `ENVIRONMENT: ${(info.environment || "local").toUpperCase()} · PORT ${info.port}`;
   } catch (e) {
     document.getElementById("envBadge").textContent = "ENV: UNKNOWN";
   }
