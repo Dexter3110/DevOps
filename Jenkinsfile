@@ -11,6 +11,7 @@ pipeline {
     // choice drives the Spring profile, the port and the deploy folder below.
     parameters {
         choice(name: 'ENVIRONMENT', choices: ['dev', 'qa'], description: 'Target environment to deploy this build to')
+        choice(name: 'DEPLOY_MODE', choices: ['docker', 'jar'], description: 'Deployment mode: docker container or jar process')
     }
 
     environment {
@@ -92,7 +93,64 @@ pipeline {
             }
         }
 
+        stage('Docker Build') {
+            when {
+                expression { params.DEPLOY_MODE == 'docker' }
+            }
+            steps {
+                echo "Building Docker image for build #${BUILD_NUMBER}..."
+                bat '''
+                    docker build -t esi-app:%BUILD_NUMBER% -t localhost:5000/esi-app:%BUILD_NUMBER% -t localhost:5000/esi-app:latest . || exit /b 1
+                '''
+            }
+        }
+
+        stage('Push to Registry') {
+            when {
+                expression { params.DEPLOY_MODE == 'docker' }
+            }
+            steps {
+                echo 'Pushing Docker images to local registry at localhost:5000...'
+                bat '''
+                    docker push localhost:5000/esi-app:%BUILD_NUMBER% || exit /b 1
+                    docker push localhost:5000/esi-app:latest || exit /b 1
+                    curl -f http://localhost:5000/v2/esi-app/tags/list || exit /b 1
+                '''
+            }
+        }
+
+        stage('Deploy Container') {
+            when {
+                expression { params.DEPLOY_MODE == 'docker' }
+            }
+            steps {
+                script {
+                    // Host port mapping: dev -> 8087, qa -> 8088 (maps to container port 8085)
+                    env.DOCKER_PORT = (params.ENVIRONMENT == 'qa') ? '8088' : '8087'
+                    env.CONTAINER_NAME = "esi-${params.ENVIRONMENT}"
+                }
+                echo "Deploying container ${env.CONTAINER_NAME} on host port ${env.DOCKER_PORT}..."
+                bat '''
+                    REM Stop and remove existing container if running (ignoring errors if absent)
+                    docker stop %CONTAINER_NAME% >nul 2>&1 || echo Container %CONTAINER_NAME% was not running
+                    docker rm %CONTAINER_NAME% >nul 2>&1 || echo Container %CONTAINER_NAME% did not exist
+
+                    REM Run new container mapped to host port
+                    docker run -d --name %CONTAINER_NAME% -p %DOCKER_PORT%:8085 -e SPRING_PROFILES_ACTIVE=%ENVIRONMENT% localhost:5000/esi-app:%BUILD_NUMBER% || exit /b 1
+
+                    REM Wait about 30 seconds for Spring Boot container startup
+                    ping -n 31 127.0.0.1 > nul
+
+                    REM Health check: verify /api/env returns HTTP 200
+                    curl -f http://localhost:%DOCKER_PORT%/api/env || exit /b 1
+                '''
+            }
+        }
+
         stage('Deploy') {
+            when {
+                expression { params.DEPLOY_MODE == 'jar' }
+            }
             steps {
                 script {
                     // Parameterized environment setting: dev -> 8085, qa -> 8086
@@ -122,6 +180,9 @@ pipeline {
         }
 
         stage('Health Check') {
+            when {
+                expression { params.DEPLOY_MODE == 'jar' }
+            }
             steps {
                 echo "Verifying deployment at http://localhost:${env.DEPLOY_PORT}/ ..."
                 bat '''
@@ -136,7 +197,10 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline build & deploy for ${APP_NAME} to ${params.ENVIRONMENT} SUCCEEDED! Visit http://localhost:${env.DEPLOY_PORT}/"
+            script {
+                def activePort = (params.DEPLOY_MODE == 'docker') ? env.DOCKER_PORT : env.DEPLOY_PORT
+                echo "Pipeline build & deploy for ${APP_NAME} to ${params.ENVIRONMENT} (${params.DEPLOY_MODE}) SUCCEEDED! Visit http://localhost:${activePort}/"
+            }
         }
         failure {
             echo "Pipeline for ${APP_NAME} FAILED on ${params.ENVIRONMENT}. Check the console log above."
