@@ -157,124 +157,120 @@ Below is the recording placeholder for the initial Ansible execution and the sub
 
 ### 5.1 Initial Run Log (Run 1: Provisioning & Deployment)
 ```text
-PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] **********************************************
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
 
-TASK [Gathering Facts] *****************************************************************************************
+TASK [Gathering Facts] *********************************************************
 ok: [localhost]
 
-TASK [Install OpenJDK 21 JRE headless and curl] ****************************************************************
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
 changed: [localhost]
 
-TASK [Ensure esi system group exists] **************************************************************************
+TASK [Ensure esi system group exists] ******************************************
 changed: [localhost]
 
-TASK [Ensure esi system user exists] ***************************************************************************
+TASK [Ensure esi system user exists] *******************************************
 changed: [localhost]
 
-TASK [Ensure base and release directories exist] ***************************************************************
+TASK [Ensure base and release directories exist] *******************************
 changed: [localhost] => (item=/opt/esi)
 changed: [localhost] => (item=/opt/esi/releases)
 changed: [localhost] => (item=/opt/esi/releases/v1)
 changed: [localhost] => (item=/var/log/esi)
 
-TASK [Copy application JAR artifact to release directory] ******************************************************
+TASK [Copy application JAR artifact to release directory] **********************
 changed: [localhost]
 
-TASK [Update current release symlink] **************************************************************************
+TASK [Update current release symlink] ******************************************
 changed: [localhost]
 
-TASK [Deploy systemd unit file for esi service] ****************************************************************
+TASK [Deploy systemd unit file for esi service] ********************************
 changed: [localhost]
 
-TASK [Reload systemd daemon if unit file changed] **************************************************************
-changed: [localhost]
-
-TASK [Ensure esi service is enabled and started] ***************************************************************
-changed: [localhost]
-
-TASK [Flush handlers to restart service if release or configuration changed] ************************************
-RUNNING HANDLER [Restart esi service] **************************************************************************
-changed: [localhost]
-
-TASK [Wait for application port to become ready] ***************************************************************
+TASK [Reload systemd daemon if unit file changed] ******************************
 ok: [localhost]
 
-TASK [Verify application health via /api/env endpoint] *********************************************************
+TASK [Ensure esi service is enabled and started] *******************************
+changed: [localhost]
+
+TASK [Flush handlers to restart service if release or configuration changed] ***
+
+RUNNING HANDLER [Restart esi service] ******************************************
+changed: [localhost]
+
+TASK [Wait for application port to become ready] *******************************
 ok: [localhost]
 
-TASK [Output deployment verification details] ******************************************************************
-ok: [localhost] => {
-    "msg": [
-        "ESI service deployed successfully!",
-        "Active Release: v1",
-        "Port: 8090",
-        "Profile: dev",
-        "Response: {'environment': 'local', 'port': '8090'}"
-    ]
-}
+TASK [Verify application health via /api/env endpoint] *************************
+ok: [localhost]
 
-PLAY RECAP *****************************************************************************************************
-localhost                  : ok=14   changed=10   unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+TASK [Output deployment verification details] **********************************
+ok: [localhost] => 
+  msg:
+  - ESI service deployed successfully!
+  - 'Active Release: v1'
+  - 'Port: 8090'
+  - 'Profile: dev'
+  - 'Response: {''environment'': ''dev'', ''port'': ''8090''}'
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=14   changed=9    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
 ```
 
 ### 5.2 Idempotency Verification Log (Run 2: Zero Changes Expected)
 ```text
-PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] **********************************************
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
 
-TASK [Gathering Facts] *****************************************************************************************
+TASK [Gathering Facts] *********************************************************
 ok: [localhost]
 
-TASK [Install OpenJDK 21 JRE headless and curl] ****************************************************************
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
 ok: [localhost]
 
-TASK [Ensure esi system group exists] **************************************************************************
+TASK [Ensure esi system group exists] ******************************************
 ok: [localhost]
 
-TASK [Ensure esi system user exists] ***************************************************************************
+TASK [Ensure esi system user exists] *******************************************
 ok: [localhost]
 
-TASK [Ensure base and release directories exist] ***************************************************************
+TASK [Ensure base and release directories exist] *******************************
 ok: [localhost] => (item=/opt/esi)
 ok: [localhost] => (item=/opt/esi/releases)
 ok: [localhost] => (item=/opt/esi/releases/v1)
 ok: [localhost] => (item=/var/log/esi)
 
-TASK [Copy application JAR artifact to release directory] ******************************************************
+TASK [Copy application JAR artifact to release directory] **********************
 ok: [localhost]
 
-TASK [Update current release symlink] **************************************************************************
+TASK [Update current release symlink] ******************************************
 ok: [localhost]
 
-TASK [Deploy systemd unit file for esi service] ****************************************************************
+TASK [Deploy systemd unit file for esi service] ********************************
 ok: [localhost]
 
-TASK [Reload systemd daemon if unit file changed] **************************************************************
+TASK [Reload systemd daemon if unit file changed] ******************************
 skipping: [localhost]
 
-TASK [Ensure esi service is enabled and started] ***************************************************************
+TASK [Ensure esi service is enabled and started] *******************************
 ok: [localhost]
 
-TASK [Flush handlers to restart service if release or configuration changed] ************************************
+TASK [Flush handlers to restart service if release or configuration changed] ***
 
-TASK [Wait for application port to become ready] ***************************************************************
+TASK [Wait for application port to become ready] *******************************
 ok: [localhost]
 
-TASK [Verify application health via /api/env endpoint] *********************************************************
+TASK [Verify application health via /api/env endpoint] *************************
 ok: [localhost]
+TASK [Output deployment verification details] **********************************
+ok: [localhost] => 
+  msg:
+  - ESI service deployed successfully!
+  - 'Active Release: v1'
+  - 'Port: 8090'
+  - 'Profile: dev'
+  - 'Response: {''environment'': ''dev'', ''port'': ''8090''}'
 
-TASK [Output deployment verification details] ******************************************************************
-ok: [localhost] => {
-    "msg": [
-        "ESI service deployed successfully!",
-        "Active Release: v1",
-        "Port: 8090",
-        "Profile: dev",
-        "Response: {'environment': 'local', 'port': '8090'}"
-    ]
-}
-
-PLAY RECAP *****************************************************************************************************
-localhost                  : ok=13   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0
+PLAY RECAP *********************************************************************
+localhost                  : ok=12   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0
 ```
 
 ---
