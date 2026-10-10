@@ -1,0 +1,519 @@
+Starting ESI Week 14 Reliability & Automated Rollback Demonstration
+Target Directory: /mnt/c/Sahil/sem7/DevOps/project8/Project/ansible
+Logging Output to: /mnt/c/Sahil/sem7/DevOps/project8/Project/ansible/demo_reliability.log
+
+
+========================================================================
+STEP A: Wipe Node (Stop service, remove unit, delete dirs & esi user)
+========================================================================
+
+[*] Executing wipe playbook to return system to clean state...
+
+PLAY [Wipe Employee Skill Inventory (ESI) Node to Pristine State] **************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Stop esi service if running] *********************************************
+changed: [localhost]
+
+TASK [Disable esi service if enabled] ******************************************
+changed: [localhost]
+
+TASK [Remove systemd unit file] ************************************************
+changed: [localhost]
+
+TASK [Reload systemd daemon] ***************************************************
+ok: [localhost]
+
+TASK [Remove application and log directories] **********************************
+changed: [localhost] => (item=/opt/esi)
+changed: [localhost] => (item=/var/log/esi)
+
+TASK [Remove esi system user] **************************************************
+changed: [localhost]
+
+TASK [Remove esi system group] *************************************************
+ok: [localhost]
+
+TASK [Verify pristine wipe status] *********************************************
+ok: [localhost] => 
+  msg: Node wiped successfully. Service, directories, unit file, and user/group removed.
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=9    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+[*] Verifying node clean state:
+Service status: inactive
+inactive / not found
+Application dir: /opt/esi removed
+ESI User: esi user removed
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP B: First Provisioning Run (Expect changed=N)
+========================================================================
+
+[*] Provisioning OpenJDK 21, creating user/dirs, deploying v1 JAR, starting service...
+
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
+ok: [localhost]
+
+TASK [Ensure esi system group exists] ******************************************
+changed: [localhost]
+
+TASK [Ensure esi system user exists] *******************************************
+changed: [localhost]
+
+TASK [Ensure base and release directories exist] *******************************
+changed: [localhost] => (item=/opt/esi)
+changed: [localhost] => (item=/opt/esi/releases)
+changed: [localhost] => (item=/opt/esi/releases/v1)
+changed: [localhost] => (item=/var/log/esi)
+
+TASK [Copy application JAR artifact to release directory] **********************
+changed: [localhost]
+
+TASK [Update current release symlink] ******************************************
+changed: [localhost]
+
+TASK [Deploy systemd unit file for esi service] ********************************
+changed: [localhost]
+
+TASK [Reload systemd daemon if unit file changed] ******************************
+ok: [localhost]
+
+TASK [Ensure esi service is enabled and started] *******************************
+changed: [localhost]
+
+TASK [Flush handlers to restart service if release or configuration changed] ***
+
+RUNNING HANDLER [Restart esi service] ******************************************
+changed: [localhost]
+
+TASK [Wait for application port to become ready] *******************************
+ok: [localhost]
+
+TASK [Verify application health via /api/env endpoint] *************************
+ok: [localhost]
+
+TASK [Output deployment verification details] **********************************
+ok: [localhost] => 
+  msg:
+  - ESI service deployed successfully!
+  - 'Active Release: v1'
+  - 'Port: 8090'
+  - 'Profile: dev'
+  - 'Response: {''environment'': ''dev'', ''port'': ''8090''}'
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=14   changed=8    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP C: Second Run (Idempotency Proof, Expect changed=0)
+========================================================================
+
+[*] Re-running playbook against active environment to verify idempotence...
+
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
+ok: [localhost]
+
+TASK [Ensure esi system group exists] ******************************************
+ok: [localhost]
+
+TASK [Ensure esi system user exists] *******************************************
+ok: [localhost]
+
+TASK [Ensure base and release directories exist] *******************************
+ok: [localhost] => (item=/opt/esi)
+ok: [localhost] => (item=/opt/esi/releases)
+ok: [localhost] => (item=/opt/esi/releases/v1)
+ok: [localhost] => (item=/var/log/esi)
+
+TASK [Copy application JAR artifact to release directory] **********************
+ok: [localhost]
+
+TASK [Update current release symlink] ******************************************
+ok: [localhost]
+
+TASK [Deploy systemd unit file for esi service] ********************************
+ok: [localhost]
+
+TASK [Reload systemd daemon if unit file changed] ******************************
+skipping: [localhost]
+
+TASK [Ensure esi service is enabled and started] *******************************
+ok: [localhost]
+
+TASK [Flush handlers to restart service if release or configuration changed] ***
+
+TASK [Wait for application port to become ready] *******************************
+ok: [localhost]
+
+TASK [Verify application health via /api/env endpoint] *************************
+ok: [localhost]
+
+TASK [Output deployment verification details] **********************************
+ok: [localhost] => 
+  msg:
+  - ESI service deployed successfully!
+  - 'Active Release: v1'
+  - 'Port: 8090'
+  - 'Profile: dev'
+  - 'Response: {''environment'': ''dev'', ''port'': ''8090''}'
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=12   changed=0    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP D: Query REST Health Endpoint (/api/env on Port 8090)
+========================================================================
+
+[*] Performing HTTP GET request to http://127.0.0.1:8090/api/env...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    35    0    35    0     0   2836      0 --:--:-- --:--:-- --:--:--  2916
+HTTP/1.1 200 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Content-Type: application/json
+Transfer-Encoding: chunked
+Date: Sat, 10 Oct 2026 20:14:57 GMT
+
+{"environment":"dev","port":"8090"}
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP E: Deploy Release v2 (-e release_version=v2)
+========================================================================
+
+[*] Deploying version v2 to isolated directory /opt/esi/releases/v2...
+
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
+ok: [localhost]
+
+TASK [Ensure esi system group exists] ******************************************
+ok: [localhost]
+
+TASK [Ensure esi system user exists] *******************************************
+ok: [localhost]
+
+TASK [Ensure base and release directories exist] *******************************
+ok: [localhost] => (item=/opt/esi)
+ok: [localhost] => (item=/opt/esi/releases)
+changed: [localhost] => (item=/opt/esi/releases/v2)
+ok: [localhost] => (item=/var/log/esi)
+
+TASK [Copy application JAR artifact to release directory] **********************
+changed: [localhost]
+
+TASK [Update current release symlink] ******************************************
+changed: [localhost]
+
+TASK [Deploy systemd unit file for esi service] ********************************
+ok: [localhost]
+
+TASK [Reload systemd daemon if unit file changed] ******************************
+skipping: [localhost]
+
+TASK [Ensure esi service is enabled and started] *******************************
+ok: [localhost]
+
+TASK [Flush handlers to restart service if release or configuration changed] ***
+
+RUNNING HANDLER [Restart esi service] ******************************************
+changed: [localhost]
+
+TASK [Wait for application port to become ready] *******************************
+ok: [localhost]
+
+TASK [Verify application health via /api/env endpoint] *************************
+ok: [localhost]
+
+TASK [Output deployment verification details] **********************************
+ok: [localhost] => 
+  msg:
+  - ESI service deployed successfully!
+  - 'Active Release: v2'
+  - 'Port: 8090'
+  - 'Profile: dev'
+  - 'Response: {''environment'': ''dev'', ''port'': ''8090''}'
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=4    unreachable=0    failed=0    skipped=1    rescued=0    ignored=0   
+
+
+[*] Verifying symlink points to release v2:
+lrwxrwxrwx 1 root root 20 Oct 10 20:15 /opt/esi/current -> /opt/esi/releases/v2
+Live API env: {"environment":"dev","port":"8090"}
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP F: Deploy Broken Release v3 (Text File as JAR, Expect Loud Play Failure)
+========================================================================
+
+[*] Creating corrupt dummy JAR artifact at /tmp/corrupt-esi.jar...
+[*] Executing deployment of release v3 (Expect task failure and error diagnostics)...
+
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
+ok: [localhost]
+
+TASK [Ensure esi system group exists] ******************************************
+ok: [localhost]
+
+TASK [Ensure esi system user exists] *******************************************
+ok: [localhost]
+
+TASK [Ensure base and release directories exist] *******************************
+ok: [localhost] => (item=/opt/esi)
+ok: [localhost] => (item=/opt/esi/releases)
+changed: [localhost] => (item=/opt/esi/releases/v3)
+ok: [localhost] => (item=/var/log/esi)
+
+TASK [Copy application JAR artifact to release directory] **********************
+changed: [localhost]
+
+TASK [Update current release symlink] ******************************************
+changed: [localhost]
+
+TASK [Deploy systemd unit file for esi service] ********************************
+ok: [localhost]
+
+TASK [Reload systemd daemon if unit file changed] ******************************
+skipping: [localhost]
+
+TASK [Ensure esi service is enabled and started] *******************************
+ok: [localhost]
+
+TASK [Flush handlers to restart service if release or configuration changed] ***
+
+RUNNING HANDLER [Restart esi service] ******************************************
+changed: [localhost]
+
+TASK [Wait for application port to become ready] *******************************
+fatal: [localhost]: FAILED! => changed=false 
+  elapsed: 45
+  msg: Timeout when waiting for 127.0.0.1:8090
+
+TASK [Capture systemd service status on health check failure] ******************
+ok: [localhost]
+
+TASK [Capture recent journal logs on health check failure] *********************
+ok: [localhost]
+
+TASK [Display diagnostic service logs] *****************************************
+ok: [localhost] => 
+  msg:
+  - ==================== SYSTEMD STATUS ====================
+  - - ● esi.service - Employee Skill Inventory (ESI) Spring Boot Service
+    - '     Loaded: loaded (/etc/systemd/system/esi.service; enabled; preset: enabled)'
+    - '     Active: activating (auto-restart) (Result: exit-code) since Sat 2026-10-10 20:16:29 UTC; 5s ago'
+    - '    Process: 4256 ExecStart=/usr/bin/java -jar /opt/esi/current/esi-project.jar --spring.profiles.active=dev --server.port=8090 (code=exited, status=1/FAILURE)'
+    - '   Main PID: 4256 (code=exited, status=1/FAILURE)'
+    - '        CPU: 2ms'
+  - ==================== JOURNAL LOGS ======================
+  - - 'Oct 10 20:13:49 DESKTOP-BQRFGRN systemd[1]: esi.service: Consumed 3.597s CPU time, 114.4M memory peak, 0B memory swap peak.'
+    - 'Oct 10 20:13:49 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:15:20 DESKTOP-BQRFGRN systemd[1]: Stopping esi.service - Employee Skill Inventory (ESI) Spring Boot Service...'
+    - 'Oct 10 20:15:20 DESKTOP-BQRFGRN systemd[1]: esi.service: Deactivated successfully.'
+    - 'Oct 10 20:15:20 DESKTOP-BQRFGRN systemd[1]: Stopped esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:15:20 DESKTOP-BQRFGRN systemd[1]: esi.service: Consumed 46.246s CPU time, 316.9M memory peak, 0B memory swap peak.'
+    - 'Oct 10 20:15:20 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:15:48 DESKTOP-BQRFGRN systemd[1]: Stopping esi.service - Employee Skill Inventory (ESI) Spring Boot Service...'
+    - 'Oct 10 20:15:49 DESKTOP-BQRFGRN systemd[1]: esi.service: Deactivated successfully.'
+    - 'Oct 10 20:15:49 DESKTOP-BQRFGRN systemd[1]: Stopped esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:15:49 DESKTOP-BQRFGRN systemd[1]: esi.service: Consumed 39.831s CPU time, 306.5M memory peak, 0B memory swap peak.'
+    - 'Oct 10 20:15:49 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:15:49 DESKTOP-BQRFGRN systemd[1]: esi.service: Main process exited, code=exited, status=1/FAILURE'
+    - 'Oct 10 20:15:49 DESKTOP-BQRFGRN systemd[1]: esi.service: Failed with result ''exit-code''.'
+    - 'Oct 10 20:15:59 DESKTOP-BQRFGRN systemd[1]: esi.service: Scheduled restart job, restart counter is at 1.'
+    - 'Oct 10 20:15:59 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:15:59 DESKTOP-BQRFGRN systemd[1]: esi.service: Main process exited, code=exited, status=1/FAILURE'
+    - 'Oct 10 20:15:59 DESKTOP-BQRFGRN systemd[1]: esi.service: Failed with result ''exit-code''.'
+    - 'Oct 10 20:16:09 DESKTOP-BQRFGRN systemd[1]: esi.service: Scheduled restart job, restart counter is at 2.'
+    - 'Oct 10 20:16:09 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:16:09 DESKTOP-BQRFGRN systemd[1]: esi.service: Main process exited, code=exited, status=1/FAILURE'
+    - 'Oct 10 20:16:09 DESKTOP-BQRFGRN systemd[1]: esi.service: Failed with result ''exit-code''.'
+    - 'Oct 10 20:16:19 DESKTOP-BQRFGRN systemd[1]: esi.service: Scheduled restart job, restart counter is at 3.'
+    - 'Oct 10 20:16:19 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:16:19 DESKTOP-BQRFGRN systemd[1]: esi.service: Main process exited, code=exited, status=1/FAILURE'
+    - 'Oct 10 20:16:19 DESKTOP-BQRFGRN systemd[1]: esi.service: Failed with result ''exit-code''.'
+    - 'Oct 10 20:16:29 DESKTOP-BQRFGRN systemd[1]: esi.service: Scheduled restart job, restart counter is at 4.'
+    - 'Oct 10 20:16:29 DESKTOP-BQRFGRN systemd[1]: Started esi.service - Employee Skill Inventory (ESI) Spring Boot Service.'
+    - 'Oct 10 20:16:29 DESKTOP-BQRFGRN systemd[1]: esi.service: Main process exited, code=exited, status=1/FAILURE'
+    - 'Oct 10 20:16:29 DESKTOP-BQRFGRN systemd[1]: esi.service: Failed with result ''exit-code''.'
+
+TASK [Fail loudly - Deployment health check failed] ****************************
+fatal: [localhost]: FAILED! => changed=false 
+  msg: 'CRITICAL: Deployment of release ''v3'' FAILED health checks on port 8090! The application did not bind to port 8090 or /api/env returned non-200. Active release ''v3'' is unhealthy. Run rollback.yml to restore previous version.'
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=13   changed=4    unreachable=0    failed=1    skipped=1    rescued=1    ignored=0   
+
+
+[PASS] Playbook failed loudly as expected with exit code 2.
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP G: Rollback to Release v2 (ansible-playbook rollback.yml -e rollback_to=v2)
+========================================================================
+
+[*] Executing automated rollback to release v2...
+
+PLAY [Rollback Employee Skill Inventory (ESI) Service to Previous Release] *****
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Validate that rollback_to variable is specified] *************************
+skipping: [localhost]
+
+TASK [Check if target release JAR exists] **************************************
+ok: [localhost]
+
+TASK [Fail if target release JAR does not exist] *******************************
+skipping: [localhost]
+
+TASK [Repoint /opt/esi/current symlink to target release] **********************
+changed: [localhost]
+
+TASK [Restart esi service with rolled-back release] ****************************
+changed: [localhost]
+
+TASK [Wait for application port to become ready] *******************************
+ok: [localhost]
+
+TASK [Verify application health via /api/env endpoint] *************************
+ok: [localhost]
+
+TASK [Output rollback verification details] ************************************
+ok: [localhost] => 
+  msg:
+  - ROLLBACK SUCCESSFUL!
+  - 'Active Release: v2'
+  - 'Symlink: /opt/esi/current -> /opt/esi/releases/v2'
+  - 'Port: 8090'
+  - 'Response: {''environment'': ''dev'', ''port'': ''8090''}'
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=7    changed=2    unreachable=0    failed=0    skipped=2    rescued=0    ignored=0   
+
+
+[*] Verifying active symlink repointed to v2:
+lrwxrwxrwx 1 root root 20 Oct 10 20:16 /opt/esi/current -> /opt/esi/releases/v2
+
+[*] Releases in /opt/esi/releases:
+total 12
+drwxr-xr-x 2 esi esi 4096 Oct 10 20:13 v1
+drwxr-xr-x 2 esi esi 4096 Oct 10 20:15 v2
+drwxr-xr-x 2 esi esi 4096 Oct 10 20:15 v3
+
+[*] Querying health check on rolled-back service:
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    35    0    35    0     0   6154      0 --:--:-- --:--:-- --:--:--  7000
+HTTP/1.1 200 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Content-Type: application/json
+Transfer-Encoding: chunked
+Date: Sat, 10 Oct 2026 20:17:03 GMT
+
+{"environment":"dev","port":"8090"}
+
+Press [Enter] to continue to the next step...
+
+========================================================================
+STEP H: Dry-Run Verification with --check --diff
+========================================================================
+
+[*] Running site.yml in check mode with diffs against release v2...
+
+PLAY [Deploy Employee Skill Inventory (ESI) Spring Boot Service] ***************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Install OpenJDK 21 JRE headless and curl] ********************************
+ok: [localhost]
+
+TASK [Ensure esi system group exists] ******************************************
+ok: [localhost]
+
+TASK [Ensure esi system user exists] *******************************************
+ok: [localhost]
+
+TASK [Ensure base and release directories exist] *******************************
+ok: [localhost] => (item=/opt/esi)
+ok: [localhost] => (item=/opt/esi/releases)
+ok: [localhost] => (item=/opt/esi/releases/v2)
+ok: [localhost] => (item=/var/log/esi)
+
+TASK [Copy application JAR artifact to release directory] **********************
+ok: [localhost]
+
+TASK [Update current release symlink] ******************************************
+ok: [localhost]
+
+TASK [Deploy systemd unit file for esi service] ********************************
+ok: [localhost]
+
+TASK [Reload systemd daemon if unit file changed] ******************************
+skipping: [localhost]
+
+TASK [Ensure esi service is enabled and started] *******************************
+ok: [localhost]
+
+TASK [Flush handlers to restart service if release or configuration changed] ***
+
+TASK [Wait for application port to become ready] *******************************
+skipping: [localhost]
+
+TASK [Verify application health via /api/env endpoint] *************************
+skipping: [localhost]
+
+TASK [Output deployment verification details] **********************************
+skipping: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=9    changed=0    unreachable=0    failed=0    skipped=4    rescued=0    ignored=0   
+
+
+========================================================================
+DEMO SEQUENCE COMPLETED SUCCESSFULLY!
+Log saved to: /mnt/c/Sahil/sem7/DevOps/project8/Project/ansible/demo_reliability.log
+========================================================================
+
