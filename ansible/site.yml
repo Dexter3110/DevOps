@@ -89,33 +89,64 @@
     - name: Flush handlers to restart service if release or configuration changed
       ansible.builtin.meta: flush_handlers
 
-    - name: Wait for application port to become ready
-      ansible.builtin.wait_for:
-        host: 127.0.0.1
-        port: "{{ app_port }}"
-        delay: 5
-        timeout: 90
-        state: started
+    - name: Verify service health and readiness
+      when: not ansible_check_mode
+      block:
+        - name: Wait for application port to become ready
+          ansible.builtin.wait_for:
+            host: 127.0.0.1
+            port: "{{ app_port }}"
+            delay: 4
+            timeout: 45
+            state: started
 
-    - name: Verify application health via /api/env endpoint
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ app_port }}/api/env"
-        method: GET
-        status_code: 200
-        return_content: true
-      register: env_response
-      until: env_response.status == 200
-      retries: 15
-      delay: 2
+        - name: Verify application health via /api/env endpoint
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ app_port }}/api/env"
+            method: GET
+            status_code: 200
+            return_content: true
+          register: env_response
+          until: env_response.status == 200
+          retries: 15
+          delay: 2
 
-    - name: Output deployment verification details
-      ansible.builtin.debug:
-        msg:
-          - "ESI service deployed successfully!"
-          - "Active Release: {{ release_version }}"
-          - "Port: {{ app_port }}"
-          - "Profile: {{ app_profile }}"
-          - "Response: {{ env_response.json }}"
+        - name: Output deployment verification details
+          ansible.builtin.debug:
+            msg:
+              - "ESI service deployed successfully!"
+              - "Active Release: {{ release_version }}"
+              - "Port: {{ app_port }}"
+              - "Profile: {{ app_profile }}"
+              - "Response: {{ env_response.json }}"
+
+      rescue:
+        - name: Capture systemd service status on health check failure
+          ansible.builtin.command: systemctl status esi.service --no-pager
+          register: diag_status
+          changed_when: false
+          failed_when: false
+
+        - name: Capture recent journal logs on health check failure
+          ansible.builtin.command: journalctl -u esi.service -n 30 --no-pager
+          register: diag_journal
+          changed_when: false
+          failed_when: false
+
+        - name: Display diagnostic service logs
+          ansible.builtin.debug:
+            msg:
+              - "==================== SYSTEMD STATUS ===================="
+              - "{{ diag_status.stdout_lines | default([]) }}"
+              - "==================== JOURNAL LOGS ======================"
+              - "{{ diag_journal.stdout_lines | default([]) }}"
+
+        - name: Fail loudly - Deployment health check failed
+          ansible.builtin.fail:
+            msg: >-
+              CRITICAL: Deployment of release '{{ release_version }}' FAILED health checks on port {{ app_port }}!
+              The application did not bind to port {{ app_port }} or /api/env returned non-200.
+              Active release '{{ release_version }}' is unhealthy. Run rollback.yml to restore previous version.
 
   handlers:
     - name: Restart esi service

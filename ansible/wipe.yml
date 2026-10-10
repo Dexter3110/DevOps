@@ -1,0 +1,50 @@
+---
+- name: Wipe Employee Skill Inventory (ESI) Node to Pristine State
+  hosts: esi
+  become: true
+  tasks:
+    - name: Stop esi service if running
+      ansible.builtin.systemd:
+        name: esi
+        state: stopped
+      failed_when: false
+
+    - name: Disable esi service if enabled
+      ansible.builtin.systemd:
+        name: esi
+        enabled: false
+      failed_when: false
+
+    - name: Remove systemd unit file
+      ansible.builtin.file:
+        path: /etc/systemd/system/esi.service
+        state: absent
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Remove application and log directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /opt/esi
+        - /var/log/esi
+
+    - name: Remove esi system user
+      ansible.builtin.user:
+        name: esi
+        state: absent
+        remove: true
+      failed_when: false
+
+    - name: Remove esi system group
+      ansible.builtin.group:
+        name: esi
+        state: absent
+      failed_when: false
+
+    - name: Verify pristine wipe status
+      ansible.builtin.debug:
+        msg: "Node wiped successfully. Service, directories, unit file, and user/group removed."

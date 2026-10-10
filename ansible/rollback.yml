@@ -1,0 +1,98 @@
+---
+- name: Rollback Employee Skill Inventory (ESI) Service to Previous Release
+  hosts: esi
+  become: true
+  vars:
+    rollback_to: ""
+    app_port: 8090
+
+  tasks:
+    - name: Validate that rollback_to variable is specified
+      ansible.builtin.fail:
+        msg: "Variable 'rollback_to' must be specified! Usage: ansible-playbook -i inventory.ini rollback.yml -e 'rollback_to=v1'"
+      when: rollback_to is not defined or rollback_to | length == 0
+
+    - name: Check if target release JAR exists
+      ansible.builtin.stat:
+        path: "/opt/esi/releases/{{ rollback_to }}/esi-project.jar"
+      register: target_jar_stat
+
+    - name: Fail if target release JAR does not exist
+      ansible.builtin.fail:
+        msg: >-
+          Rollback aborted: Target release artifact '/opt/esi/releases/{{ rollback_to }}/esi-project.jar' does not exist!
+          Please check existing versions in /opt/esi/releases/.
+      when: not target_jar_stat.stat.exists or not target_jar_stat.stat.isreg
+
+    - name: Repoint /opt/esi/current symlink to target release
+      ansible.builtin.file:
+        src: "/opt/esi/releases/{{ rollback_to }}"
+        dest: /opt/esi/current
+        state: link
+        owner: esi
+        group: esi
+        force: true
+
+    - name: Restart esi service with rolled-back release
+      ansible.builtin.systemd:
+        name: esi
+        state: restarted
+        daemon_reload: true
+
+    - name: Verify rolled-back service health and readiness
+      when: not ansible_check_mode
+      block:
+        - name: Wait for application port to become ready
+          ansible.builtin.wait_for:
+            host: 127.0.0.1
+            port: "{{ app_port }}"
+            delay: 4
+            timeout: 45
+            state: started
+
+        - name: Verify application health via /api/env endpoint
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:{{ app_port }}/api/env"
+            method: GET
+            status_code: 200
+            return_content: true
+          register: env_response
+          until: env_response.status == 200
+          retries: 15
+          delay: 2
+
+        - name: Output rollback verification details
+          ansible.builtin.debug:
+            msg:
+              - "ROLLBACK SUCCESSFUL!"
+              - "Active Release: {{ rollback_to }}"
+              - "Symlink: /opt/esi/current -> /opt/esi/releases/{{ rollback_to }}"
+              - "Port: {{ app_port }}"
+              - "Response: {{ env_response.json }}"
+
+      rescue:
+        - name: Capture systemd service status on rollback failure
+          ansible.builtin.command: systemctl status esi.service --no-pager
+          register: diag_status
+          changed_when: false
+          failed_when: false
+
+        - name: Capture recent journal logs on rollback failure
+          ansible.builtin.command: journalctl -u esi.service -n 30 --no-pager
+          register: diag_journal
+          changed_when: false
+          failed_when: false
+
+        - name: Display diagnostic service logs
+          ansible.builtin.debug:
+            msg:
+              - "==================== SYSTEMD STATUS ===================="
+              - "{{ diag_status.stdout_lines | default([]) }}"
+              - "==================== JOURNAL LOGS ======================"
+              - "{{ diag_journal.stdout_lines | default([]) }}"
+
+        - name: Fail loudly - Rollback health check failed
+          ansible.builtin.fail:
+            msg: >-
+              CRITICAL: Rollback to '{{ rollback_to }}' FAILED health checks on port {{ app_port }}!
+              Service failed to start or /api/env returned non-200.
